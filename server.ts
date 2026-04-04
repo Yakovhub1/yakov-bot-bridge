@@ -1,63 +1,101 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-
-const SPREADSHEET_ID = "1i2lLDNnPcgYJDXOQ0MjFtV3Qpki9Rm6I_WriBQVE4e8";
-const SHEET_NAME = "Sheet1";
-
-async function appendToSheet(data: any) {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}!A:H:append?valueInputOption=USER_ENTERED`;
-  
-  const row = [
-    new Date().toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" }),
-    data.phone || "",
-    data.name || "",
-    data.gender || "",
-    data.height || "",
-    data.weight || "",
-    data.goal_weight || "",
-    data.menu || ""
-  ];
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${Deno.env.get("GOOGLE_ACCESS_TOKEN")}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      values: [row],
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Google Sheets API error: ${response.status} ${errorText}`);
-  }
-
-  return await response.json();
+import { DateTime } from "https://esm.sh/luxon@3.4.4";
+const AIRTABLE_API_KEY = Deno.env.get("AIRTABLE_PAT");
+const AIRTABLE_BASE_ID = Deno.env.get("AIRTABLE_BASE_ID");
+const P2B_SECRET = Deno.env.get("PROMPT2BOT_TOKEN");
+async function getUsers() {
+const url = "https://api.airtable.com/v0/" + AIRTABLE_BASE_ID + "/Yakov_Users";
+try {
+const res = await fetch(url, {
+headers: { Authorization: "Bearer " + AIRTABLE_API_KEY },
+});
+const data = await res.json();
+return data.records || [];
+} catch (e) {
+console.error("Airtable fetch error:", e);
+return [];
 }
+}
+async function sendMessage(to: string, text: string) {
+console.log("Sending to " + to + ": " + text);
+try {
+await fetch("https://api.prompt2bot.com/api", {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify({
+endpoint: "inject-context",
+payload: {
+secret: P2B_SECRET,
+context: text,
+preferredNetwork: "whatsapp",
+targetConversationId: String(to).replace(/\D/g, "") + "@c.us",
+},
+}),
+});
+} catch (e) {
+console.error("P2B send error:", e);
+}
+}
+async function runAutomation() {
+const now = DateTime.now().setZone("Asia/Jerusalem");
+console.log("--- Automation Run: " + now.toString() + " ---");
+const users = await getUsers();
+for (const user of users) {
+const f = user.fields;
+if (!f.Phone) continue;
 
-const handler = async (req: Request): Promise<Response> => {
-  const url = new URL(req.url);
-  
-  if (req.method === "POST" && url.pathname === "/append") {
-    try {
-      const body = await req.json();
-      await appendToSheet(body);
-      return new Response(JSON.stringify({ success: true, message: "נתונים נשמרו בהצלחה!" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    } catch (error) {
-      console.error("Error:", error.message);
-      return new Response(JSON.stringify({ success: false, error: error.message }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
+// 1. Onboarding Nudge (5 mins)
+if (f.Status === "InProgress" && f.LastInteraction && f.nudge_sent !== true) {
+  const lastInt = DateTime.fromISO(f.LastInteraction).setZone("Asia/Jerusalem");
+  const diff = now.diff(lastInt, "minutes").minutes;
+  if (diff >= 5 && diff  12 && hoursSinceJoined < 36 && !f.Asked_Reminders) {
+      await sendMessage(f.Phone, "בוקר אור! כאן יעקב. רציתי לשאול - האם תרצה שאשלח לך הודעה קצרה בסוף כל יום כדי לשאול לשלומך, או שמעדיף רק תזכורות שקילה מדי פעם?");
+      await fetch("https://api.airtable.com/v0/" + AIRTABLE_BASE_ID + "/Yakov_Users/" + user.id, {
+         method: "PATCH",
+         headers: { Authorization: "Bearer " + AIRTABLE_API_KEY, "Content-Type": "application/json" },
+         body: JSON.stringify({ fields: { Asked_Reminders: true } }),
       });
     }
   }
 
-  return new Response("Bridge is alive!", { status: 200 });
-};
+6 minutes ago
 
-console.log("Server starting...");
+  // 10:00 Expiry Check
+  if (now.hour === 10 && f.Paid_Until) {
+    const paidUntil = DateTime.fromISO(f.Paid_Until).setZone("Asia/Jerusalem");
+    if (paidUntil.hasSame(now, 'day')) {
+      await sendMessage(f.Phone, "שלום, המנוי שלך מסתיים היום. כדי להמשיך ליהנות מהליווי, ניתן לפנות לניסים בטלפון: 0503493737 להסדרת תשלום.");
+    }
+  }
+
+  // 20:00 Evening Reminders
+  if (now.hour === 20) {
+    let msg = "היי, ערב טוב! איך עבר עליך היום מבחינת הארוחות? היה משהו קשה? זכרת לשתות מספיק מים?";
+    if (f.Has_Tablets) msg += " וזכרת לקחת את הטבליות שלך?";
+
+    const isWeighDay = now.weekday === 3 || now.weekday === 6;
+    if (isWeighDay) {
+      msg += "\nוחשוב מאוד: מחר בבוקר יום שקילה! אל תשכח להישקל ולעדכן אותי כאן.";
+    }
+
+    if (now.weekday === 1 && !f.Has_Tablets) {
+      msg += "\nדרך אגב, יש לנו טבליות מיוחדות שעוזרות לתחושת שובע. תרצה לשמוע פרטים?";
+    }
+
+    if (f.Daily_reminder || isWeighDay) {
+      await sendMessage(f.Phone, msg);
+    }
+  }
+}
+
+}
+}
+const handler = async (req: Request): Promise => {
+const url = new URL(req.url);
+if (url.pathname === "/nudge") {
+await runAutomation();
+return new Response("Automation run completed", { status: 200 });
+}
+return new Response("Bridge is alive!", { status: 200 });
+};
 serve(handler, { port: 8080 });

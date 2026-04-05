@@ -25,8 +25,11 @@ try {
 const url = "https://api.airtable.com/v0/" + AIRTABLE_BASE_ID + "/Yakov_Users/" + id;
 await fetch(url, {
 method: 'PATCH',
-headers: { "Authorization": "Bearer " + AIRTABLE_API_KEY, "Content-Type": "application/json" },
-body: JSON.stringify({ fields })
+headers: {
+"Authorization": "Bearer " + AIRTABLE_API_KEY,
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ fields: fields })
 });
 } catch (e) { console.log("Error update:", e); }
 }
@@ -34,7 +37,8 @@ async function runCheck() {
 const now = DateTime.now().setZone('Asia/Jerusalem');
 let report = "--- Yakov Bot Production Report ---\nTime: " + now.toString() + "\n\n";
 try {
-const res = await fetch("https://api.airtable.com/v0/" + AIRTABLE_BASE_ID + "/Yakov_Users", {
+const fetchUrl = "https://api.airtable.com/v0/" + AIRTABLE_BASE_ID + "/Yakov_Users";
+const res = await fetch(fetchUrl, {
 headers: { "Authorization": "Bearer " + AIRTABLE_API_KEY }
 });
 const data = await res.json();
@@ -54,7 +58,7 @@ for (const record of data.records) {
     }
   }
 
-  // 2. תזכורת בוקר - שעה 10
+  // 2. תזכורת בוקר - שעה 10 (עד 10:10)
   if (now.hour === 10 && now.minute = now.startOf('day'));
     const isWeighDayEve = (now.weekday === 2 || now.weekday === 5); // Tuesday/Friday evenings
 
@@ -65,7 +69,7 @@ just now
       if (f.Has_Tablets) msg += " וזכרת לקחת את הטבליות שלך?";
       if (isActive && isWeighDayEve) msg += "\nוחשוב מאוד: מחר בבוקר יום שקילה! אל תשכח להישקל ולעדכן אותי כאן.";
       await sendMessage(f.Phone, msg);
-      await new Promise(r => setTimeout(r, 20000)); // Delay between users
+      await new Promise(r => setTimeout(r, 20000));
     }
   }
 }
@@ -75,9 +79,6 @@ return report + "Done.";
 }
 serve(async (req) => {
 const url = new URL(req.url);
-if (url.pathname === "/nudge") {
-const result = await runCheck();
-return new Response(result);
-}
-return new Response("Bridge is alive!");
+if (url.pathname === "/nudge") return new Response(await runCheck());
+return new Response("Yakov Production System Live");
 }, { port: 8080 });

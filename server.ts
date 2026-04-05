@@ -47,7 +47,7 @@ for (const record of data.records) {
   }
 
   // 2. תזכורת בוקר (מותאם לטסט - שעה 10:00)
-  if (now.hour === 11) {
+  if (now.hour === 10) {
     report += " - Morning Check: Asked_Reminders is " + (f.Asked_Reminders || "false") + "\n";
     if (!f.Asked_Reminders) {
       report += " - ACTION: Sending Morning Question...\n";

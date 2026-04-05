@@ -56,7 +56,7 @@ for (const record of data.records) {
     }
   }
 
-  if (now.hour === 10 && now.minute >= 45 && now.minute < 58) {
+  if (now.hour === 10 && now.minute >= 49 && now.minute < 58) {
     const created = DateTime.fromISO(record.createdTime).setZone('Asia/Jerusalem');
     if (now.diff(created, "hours").hours > 12 && !f.Asked_Reminders) {
       await sendMessage(f.Phone, "בוקר אור! כאן יעקב. רציתי לשאול - האם תרצה שאשלח לך הודעה קצרה בסוף כל יום כדי לשאול לשלומך, או שמעדיף רק תזכורות שקילה מדי פעם?");

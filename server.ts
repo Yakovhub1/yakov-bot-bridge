@@ -22,9 +22,13 @@ targetConversationId: String(to).replace(/[^0-9]/g, "") + "@c.us"
 }
 async function updateAirtable(id: string, fields: any) {
 try {
-await fetch(https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Yakov_Users/${id}, {
+const url = "https://api.airtable.com/v0/" + AIRTABLE_BASE_ID + "/Yakov_Users/" + id;
+await fetch(url, {
 method: "PATCH",
-headers: { "Authorization":Bearer ${AIRTABLE_API_KEY}, "Content-Type": "application/json" },
+headers: {
+"Authorization": "Bearer " + AIRTABLE_API_KEY,
+"Content-Type": "application/json"
+},
 body: JSON.stringify({ fields })
 });
 } catch (e) { console.error("Airtable update error:", e); }
@@ -32,8 +36,8 @@ body: JSON.stringify({ fields })
 async function runAutomation() {
 const now = DateTime.now().setZone('Asia/Jerusalem');
 let report = "--- Yakov Bot Production Report ---\nTime: " + now.toString() + "\n\n";
-const res = await fetch(https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Yakov_Users, {
-headers: { "Authorization":Bearer ${AIRTABLE_API_KEY} }
+const res = await fetch("https://api.airtable.com/v0/" + AIRTABLE_BASE_ID + "/Yakov_Users", {
+headers: { "Authorization": "Bearer " + AIRTABLE_API_KEY }
 });
 const data = await res.json();
 if (!data.records) return report + "No records found.";
@@ -52,7 +56,7 @@ if (f.Status === "InProgress" && f.LastInteraction && f.nudge_sent !== true) {
 }
 
 // 2. תזכורת בוקר (מיוחד לטסט - 10:40)
-if (now.hour === 10 && now.minute >= 40 && now.minute  12 && !f.Asked_Reminders) {
+if (now.hour === 10 && now.minute >= 43 && now.minute  12 && !f.Asked_Reminders) {
     await sendMessage(f.Phone, "בוקר אור! כאן יעקב. רציתי לשאול - האם תרצה שאשלח לך הודעה קצרה בסוף כל יום כדי לשאול לשלומך, או שמעדיף רק תזכורות שקילה מדי פעם?");
     await updateAirtable(record.id, { Asked_Reminders: true });
     await new Promise(r => setTimeout(r, 20000));
@@ -79,6 +83,10 @@ return report + "Done.";
 just now
 serve(async (req) => {
 const url = new URL(req.url);
-if (url.pathname === "/nudge") return new Response(await runAutomation());
-return new Response("Bridge is alive! Path: " + url.pathname);
+if (url.pathname === "/nudge") {
+const result = await runCheck();
+return new Response(result);
+}
+async function runCheck() { return await runAutomation(); }
+return new Response("Bridge is alive! Diagnostic path: /nudge");
 }, { port: 8080 });

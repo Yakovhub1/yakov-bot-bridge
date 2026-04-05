@@ -63,7 +63,7 @@ for (const record of data.records) {
 } catch (err) { report += "ERROR: " + err.message + "\n"; }
 return report + "Done.";
 }
-just now
+
 serve(async (req) => {
 const url = new URL(req.url);
 if (url.pathname === "/nudge") return new Response(await runCheck());
